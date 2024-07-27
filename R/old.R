@@ -5,9 +5,8 @@ list_package_files <- function(dir, type) {
     "source" = "_.*\\.tar\\..*$",
     "mac.binary" = "_.*\\.tgz$",
     "win.binary" = "_.*\\.zip$")
-  normalizePath(
-    list.files(dir, pattern = package_pattern, full.names = TRUE)
-  )
+  
+    s3fs::s3_dir_ls(dir, regexp = package_pattern)
 }
 
 write_packages_files <- function(dir, db_file) {

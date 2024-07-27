@@ -15,7 +15,7 @@ pkgname_from_filename <- function(files) {
 
 check_existing_files <- function(files) {
 
-  miss <- ! file.exists(files)
+  miss <- ! s3fs::s3_file_exists(files)
 
   if (sum(miss) == 1) {
     stop("File does not exist: ", files[miss])

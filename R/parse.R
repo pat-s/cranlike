@@ -1,6 +1,4 @@
-
 parse_package_files <- function(files, md5s, fields) {
-
   ## We work in temp dir
   dir.create(tmp <- tempfile())
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
@@ -11,14 +9,25 @@ parse_package_files <- function(files, md5s, fields) {
   ## but even in this case there will be a warning as well...
   pkgs <- lapply(files, function(file) {
     "!DEBUG Parsing `basename(file)`"
-    desc <- get_desc(file)
-    if (is.null(desc)) return(NULL)
+
+    if (grepl("s3://", file)) {
+      # s3://devxy-arm64-r-binaries/__linux__/rhel9/latest/src/contrib/abd_0.2-8.tar.gz
+      package_and_tag <- strsplit(basename(file), ".tar.gz")[[1]]
+      package <- strsplit(package_and_tag, "_")[[1]][1]
+      tag <- strsplit(package_and_tag, "_")[[1]][2]
+      desc <- get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", package, tag))
+    } else {
+      desc <- get_desc(file)
+    }
+    if (is.null(desc)) {
+      return(NULL)
+    }
     row <- desc$get(fields)
     if (is.na(row["Package"])) warning("No package name in ", sQuote(file))
     if (is.na(row["Version"])) warning("No version number in ", sQuote(file))
     row
   })
-  valid <- ! vapply(pkgs, is.null, TRUE)
+  valid <- !vapply(pkgs, is.null, TRUE)
 
   ## Make it into a DF
   pkgs <- drop_nulls(pkgs)
@@ -33,13 +42,18 @@ parse_package_files <- function(files, md5s, fields) {
   df$File <- basename(files[valid])
 
   ## Some extra fields
-  df$Filesize <- as.character(file.size(files[valid]))
+  if (grepl("s3://", files[1])) {
+    df$Filesize <- s3fs::s3_file_size(files)
+  } else {
+    df$Filesize <- as.character(file.size(files[valid]))
+  }
 
   ## Standardize licenses, or NA, like in tools
   license_info <- analyze_licenses(df$License)
   df$License <- ifelse(license_info$is_standardizable,
-                       license_info$standardization,
-                       NA_character_)
+    license_info$standardization,
+    NA_character_
+  )
 
   df
 }
@@ -70,10 +84,8 @@ get_desc <- function(file) {
 choose_uncompress_function <- function(file) {
   if (grepl("_.*\\.zip$", file)) {
     function(...) unzip(..., unzip = "internal")
-
   } else if (grepl("_.*\\.tar\\..*$", file) || grepl("_.*\\.tgz$", file)) {
     function(...) untar(..., tar = "internal")
-
   } else {
     stop("Don't know how to handle file: ", file)
   }

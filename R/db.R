@@ -1,4 +1,3 @@
-
 #' @importFrom utils globalVariables
 
 globalVariables("db")
@@ -42,7 +41,7 @@ db_env <- new.env()
 
 with_db <- function(db_file, expr) {
   con <- db_env$con
-  if (is.null(con) || ! dbIsValid(con)) {
+  if (is.null(con) || !dbIsValid(con)) {
     con <- dbConnect(SQLite(), db_file, synchronous = NULL)
     dbExecute(con, "PRAGMA busy_timeout = 60000")
     on.exit(dbDisconnect(con), add = TRUE)
@@ -61,7 +60,7 @@ with_db <- function(db_file, expr) {
 
 with_db_lock <- function(db_file, expr) {
   on.exit(dbDisconnect(con), add = TRUE)
-  if (is.null(db_env$con) || ! dbIsValid(db_env$con)) {
+  if (is.null(db_env$con) || !dbIsValid(db_env$con)) {
     db_env$con <- dbConnect(SQLite(), db_file, synchronous = NULL)
   }
   con <- db_env$con
@@ -116,17 +115,24 @@ db_create_text_table <- function(db, name, columns, key) {
 
 #' @importFrom tools md5sum
 #' @importFrom DBI sqlInterpolate
+#' @importFrom s3fs s3_file_info
 
 update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
-
   "!DEBUG Updating DB in `basename(db_file)`"
 
   ## Current packages
   files <- list_package_files(dir, type)
-  dir_md5 <- md5sum(files)
+
+  browser()
+  if (!grepl("s3://", files[1])) {
+    dir_md5 <- md5sum(files)
+  } else {
+    dir_md5 <- gsub('^"|"$', "", s3fs::s3_file_info(files)$etag)
+    dir_md5 <- setNames(dir_md5, files)
+  }
 
   with_db_lock(db_file, {
-
+    browser()
     ## Packages in the DB
     db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
 
@@ -142,6 +148,7 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     ## Any files added?
     if (length(added <- setdiff(dir_md5, db_md5)) > 0) {
       added_files <- names(dir_md5)[match(added, dir_md5)]
+      browser()
       pkgs <- parse_package_files(added_files, added, fields)
       if (length(xcolumns)) {
         pkgs <- cbind(pkgs, xcolumns)
@@ -149,7 +156,11 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
       insert_packages(db, pkgs)
     }
 
-    write_packages_files(dir, db_file)
+    if (!grepl("s3://", files[1])) {
+      write_packages_files(dir, db_file)
+    } else {
+      write_packages_files(".", db_file)
+    }
   })
 }
 

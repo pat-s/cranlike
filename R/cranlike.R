@@ -1,4 +1,3 @@
-
 #' Tools for CRAN-like Repositories
 #'
 #' A set of functions to manage CRAN-like repositories efficiently.
@@ -18,7 +17,6 @@
 #' @export
 
 create_empty_PACKAGES <- function(dir = ".", fields = NULL, xcolumns = NULL) {
-
   "!DEBUG Creating empty package DB and PACKAGES* files"
   fields <- get_fields(fields)
 
@@ -49,15 +47,15 @@ create_empty_PACKAGES <- function(dir = ".", fields = NULL, xcolumns = NULL) {
 #'
 #' @inheritParams create_empty_PACKAGES
 #' @inheritParams tools::write_PACKAGES
+#' @importFrom s3fs s3_file_exists s3_file_download
 #'
 #' @family PACKAGES manipulation
 #' @export
 
 update_PACKAGES <- function(
-  dir = ".", fields = NULL,
-  type = c("source", "mac.binary", "win.binary"),
-  xcolumns = NULL) {
-
+    dir = ".", fields = NULL,
+    type = c("source", "mac.binary", "win.binary"),
+    xcolumns = NULL) {
   "!DEBUG Updating DB and PACKAGES* from directory content"
   fields <- get_fields(fields)
 
@@ -65,9 +63,18 @@ update_PACKAGES <- function(
 
   db_file <- get_db_file(dir)
 
-  ## Create DB if needed
-  if (!file.exists(db_file)) {
-    create_db(dir, db_file, fields = fields, xcolumns = xcolumns)
+  if (!grepl("s3://", db_file)) {
+    ## Create DB if needed
+    if (!file.exists(db_file)) {
+      create_db(dir, db_file, fields = fields, xcolumns = xcolumns)
+    }
+  } else {
+    if (!s3fs::s3_file_exists(db_file)) {
+      create_db(".", db_file, fields = fields, xcolumns = xcolumns)
+    } else {
+      s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "PACKAGES.db", overwrite = TRUE)
+    }
+    db_file <- get_db_file(".")
   }
 
   ## Update DB
@@ -85,23 +92,38 @@ update_PACKAGES <- function(
 #' @param fields Fields to use in the database if the database is
 #'   created.
 #' @inheritParams create_empty_PACKAGES
+#' @importFrom s3fs s3_file_info
 #'
 #' @family PACKAGES manipulation
 #' @export
 
 add_PACKAGES <- function(files, dir = ".", fields = NULL, xcolumns = NULL) {
-
   "!DEBUG Adding `length(files)` packages"
 
-  full_files <- file.path(dir, files)
-  check_existing_files(full_files)
+  if (!grepl("s3://", files)) {
+    full_files <- file.path(dir, files)
+    check_existing_files(full_files)
+    md5s <- md5sum(full_files)
+  } else {
+    full_files <- files
+    # remove duplicated quotes
+    md5s <- gsub('^"|"$', "", s3fs::s3_file_info(full_files)$etag)
+  }
 
-  md5s <- md5sum(full_files)
-
-  db_file <- get_db_file(dir)
-  fields <- get_fields(fields)
-  if (!file.exists(db_file)) {
-    create_db(dir, db_file, fields = fields, xcolumns = xcolumns)
+  if (!grepl("s3://", files)) {
+    db_file <- get_db_file(dir)
+    fields <- get_fields(fields)
+    if (!file.exists(db_file)) {
+      create_db(".", db_file, fields = fields, xcolumns = xcolumns)
+    }
+  } else {
+    fields <- get_fields(fields)
+    if (!s3fs::s3_file_exists(sprintf("%s/PACKAGES.db", dir))) {
+      create_db(".", db_file, fields = fields, xcolumns = xcolumns)
+    } else {
+      s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "PACKAGES.db", overwrite = TRUE)
+    }
+    db_file <- get_db_file(".")
   }
 
   pkgs <- parse_package_files(full_files, md5s, fields)
@@ -114,7 +136,11 @@ add_PACKAGES <- function(files, dir = ".", fields = NULL, xcolumns = NULL) {
       dbExecute(db, sqlInterpolate(db, sql, file = basename(file)))
     }
     insert_packages(db, pkgs)
-    write_packages_files(dir, db_file)
+    if (!grepl("s3://", files)) {
+      write_packages_files(dir, db_file)
+    } else {
+      write_packages_files(".", db_file)
+    }
   })
 }
 
@@ -131,7 +157,6 @@ add_PACKAGES <- function(files, dir = ".", fields = NULL, xcolumns = NULL) {
 #' @export
 
 remove_PACKAGES <- function(files, dir = ".") {
-
   "!DEBUG Removing `length(files)` packages"
 
   full_files <- file.path(dir, files)
