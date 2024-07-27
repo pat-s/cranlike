@@ -72,7 +72,7 @@ update_PACKAGES <- function(
     if (!s3fs::s3_file_exists(db_file)) {
       create_db(".", db_file, fields = fields, xcolumns = xcolumns)
     } else {
-      s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "/PACKAGES.db", overwrite = TRUE)
+      s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "PACKAGES.db", overwrite = TRUE)
     }
     db_file <- get_db_file(".")
   }
