@@ -61,8 +61,6 @@ update_PACKAGES <- function(
 
   type <- match.arg(type)
 
-  browser()
-
   db_file <- get_db_file(dir)
 
   if (!grepl("s3://", db_file)) {
