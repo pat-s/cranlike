@@ -123,7 +123,6 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
   ## Current packages
   files <- list_package_files(dir, type)
 
-  browser()
   if (!grepl("s3://", files[1])) {
     dir_md5 <- md5sum(files)
   } else {
@@ -132,7 +131,6 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
   }
 
   with_db_lock(db_file, {
-    browser()
     ## Packages in the DB
     db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
 
@@ -148,7 +146,6 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     ## Any files added?
     if (length(added <- setdiff(dir_md5, db_md5)) > 0) {
       added_files <- names(dir_md5)[match(added, dir_md5)]
-      browser()
       pkgs <- parse_package_files(added_files, added, fields)
       if (length(xcolumns)) {
         pkgs <- cbind(pkgs, xcolumns)
