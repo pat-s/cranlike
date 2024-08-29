@@ -126,14 +126,19 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
   if (!grepl("s3://", files[1])) {
     dir_md5 <- md5sum(files)
   } else {
+    message("cranlike: Starting querying md5sum from S3")
     dir_md5 <- gsub('^"|"$', "", s3fs::s3_file_info(files)$etag)
+    message("cranlike: Finished querying md5sum from S3")
     dir_md5 <- setNames(dir_md5, files)
   }
 
   with_db_lock(db_file, {
     ## Packages in the DB
+    message("cranlike: Starting querying md5sum from DB")
     db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
+    message("cranlike: Finished querying md5sum from DB")
 
+    message("cranlike: Checking for removed files in DB")
     ## Files removed?
     if (length(removed <- setdiff(db_md5, dir_md5)) > 0) {
       sql <- "DELETE FROM packages WHERE MD5sum = ?md5sum"
@@ -142,7 +147,9 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
         dbExecute(db, sqlInterpolate(db, sql, md5sum = rem))
       }
     }
+    message("cranlike: Finished checking for removed files in DB")
 
+    message("cranlike: Processing new files to be added to DB")
     ## Any files added?
     if (length(added <- setdiff(dir_md5, db_md5)) > 0) {
       added_files <- names(dir_md5)[match(added, dir_md5)]
@@ -152,12 +159,15 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
       }
       insert_packages(db, pkgs)
     }
+    message("cranlike: Finished adding new files to DB")
 
+    message("cranlike: Started writing packages file")
     if (!grepl("s3://", files[1])) {
       write_packages_files(dir, db_file)
     } else {
       write_packages_files(".", db_file)
     }
+    message("cranlike: Finished writing packages file")
   })
 }
 
