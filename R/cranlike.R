@@ -70,7 +70,7 @@ update_PACKAGES <- function(
     }
   } else {
     if (!s3fs::s3_file_exists(db_file)) {
-      create_db(".", db_file, fields = fields, xcolumns = xcolumns)
+      create_db(".", basename(db_file), fields = fields, xcolumns = xcolumns)
     } else {
       s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "PACKAGES.db", overwrite = TRUE)
     }
@@ -78,7 +78,7 @@ update_PACKAGES <- function(
   }
 
   ## Update DB
-  update_db(dir, db_file, fields, type, xcolumns)
+  update_db(dir, basename(db_file), fields, type, xcolumns)
 }
 
 #' Add R packages to the package database
