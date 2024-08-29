@@ -46,13 +46,13 @@ parse_package_files <- function(files, md5s, fields) {
   df$File <- basename(files[valid])
 
   ## Some extra fields
-  message("Started querying file sizes")
-  if (grepl("s3://", files[1])) {
-    df$Filesize <- s3fs::s3_file_size(files)
-  } else {
-    df$Filesize <- as.character(file.size(files[valid]))
-  }
-  message("Finished querying file sizes")
+  # message("Started querying file sizes")
+  # if (grepl("s3://", files[1])) {
+  #   df$Filesize <- s3fs::s3_file_size(files)
+  # } else {
+  #   df$Filesize <- as.character(file.size(files[valid]))
+  # }
+  # message("Finished querying file sizes")
 
   ## Standardize licenses, or NA, like in tools
   license_info <- analyze_licenses(df$License)
