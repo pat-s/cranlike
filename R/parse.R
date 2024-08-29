@@ -7,7 +7,8 @@ parse_package_files <- function(files, md5s, fields) {
   ## this is probably because uncompressing the file has failed.
   ## If there is an error, then we could not extract DESCRIPTION,
   ## but even in this case there will be a warning as well...
-  pkgs <- lapply(files, function(file) {
+  message("Started parsing DESCRIPTION files")
+  pkgs <- future.apply::future_lapply(files, function(file) {
     "!DEBUG Parsing `basename(file)`"
 
     if (grepl("s3://", file)) {
@@ -27,6 +28,7 @@ parse_package_files <- function(files, md5s, fields) {
     if (is.na(row["Version"])) warning("No version number in ", sQuote(file))
     row
   })
+  message("Finished parsing DESCRIPTION files")
   valid <- !vapply(pkgs, is.null, TRUE)
 
   ## Make it into a DF
@@ -42,11 +44,13 @@ parse_package_files <- function(files, md5s, fields) {
   df$File <- basename(files[valid])
 
   ## Some extra fields
+  message("Started querying file sizes")
   if (grepl("s3://", files[1])) {
     df$Filesize <- s3fs::s3_file_size(files)
   } else {
     df$Filesize <- as.character(file.size(files[valid]))
   }
+  message("Finished querying file sizes")
 
   ## Standardize licenses, or NA, like in tools
   license_info <- analyze_licenses(df$License)
