@@ -9,8 +9,10 @@ parse_package_files <- function(files, md5s, fields) {
   ## but even in this case there will be a warning as well...
   message("Started parsing DESCRIPTION files")
   pkgs <- future.apply::future_lapply(files, function(file) {
+    p <- progressr::progressor(along = files)
     "!DEBUG Parsing `basename(file)`"
 
+    p(sprintf("x=%g", file))
     if (grepl("s3://", file)) {
       # s3://devxy-arm64-r-binaries/__linux__/rhel9/latest/src/contrib/abd_0.2-8.tar.gz
       package_and_tag <- strsplit(basename(file), ".tar.gz")[[1]]
