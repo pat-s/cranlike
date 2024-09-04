@@ -17,6 +17,7 @@ Imports:
     RSQLite,
     future.apply,
     progressr,
+    s3fs,
     tools,
     utils
 Suggests: 
