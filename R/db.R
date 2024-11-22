@@ -114,7 +114,7 @@ db_create_text_table <- function(db, name, columns, key) {
 }
 
 #' @importFrom tools md5sum
-#' @importFrom DBI sqlInterpolate
+#' @importFrom DBI sqlInterpolate dbSendQuery
 #' @importFrom s3fs s3_file_info
 
 update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
@@ -133,6 +133,9 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
   }
 
   with_db_lock(db_file, {
+    ## Housekeeping - delete incomplete entries (e.g. version missing)
+    dbSendQuery(db, "DELETE FROM packages WHERE Version IS NULL")
+
     ## Packages in the DB
     message("cranlike: Starting querying md5sum from DB")
     db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
@@ -160,6 +163,9 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
       insert_packages(db, pkgs)
     }
     message("cranlike: Finished adding new files to DB")
+
+    ## Housekeeping - delete incomplete entries (e.g. version missing)
+    dbSendQuery(db, "DELETE FROM packages WHERE Version IS NULL")
 
     message("cranlike: Started writing packages file")
     if (!grepl("s3://", files[1])) {
