@@ -130,6 +130,7 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     dir_md5 <- gsub('^"|"$', "", s3fs::s3_file_info(files)$etag)
     message("cranlike: Finished querying md5sum from S3")
     dir_md5 <- setNames(dir_md5, files)
+    message(sprintf("cranlike: S3 pkgs count: %s", length(dir_md5)))
   }
 
   with_db_lock(db_file, {
@@ -139,6 +140,7 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     ## Packages in the DB
     message("cranlike: Starting querying md5sum from DB")
     db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
+    message(sprintf("cranlike: DB pkgs count: %s", length(db_md5)))
     message("cranlike: Finished querying md5sum from DB")
 
     message("cranlike: Checking for removed files in DB")
@@ -161,6 +163,7 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
         pkgs <- cbind(pkgs, xcolumns)
       }
       insert_packages(db, pkgs)
+      message(sprintf("cranlike: Added %s new packages", nrow(pkgs)))
     }
     message("cranlike: Finished adding new files to DB")
 
