@@ -135,7 +135,12 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
 
   with_db_lock(db_file, {
     ## Housekeeping - delete incomplete entries (e.g. version missing)
-    dbSendQuery(db, "DELETE FROM packages WHERE Version IS NULL")
+    no_version <- dbGetQuery(db, "SELECT * FROM packages WHERE Version IS NULL")
+    if (nrow(no_version) > 0) {
+      message("cranlike: Removing packages without version from DB")
+      cat(no_version$Package)
+      dbSendQuery(db, "DELETE FROM packages WHERE Version IS NULL")
+    }
 
     ## Packages in the DB
     message("cranlike: Starting querying md5sum from DB")
@@ -168,7 +173,12 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     message("cranlike: Finished adding new files to DB")
 
     ## Housekeeping - delete incomplete entries (e.g. version missing)
-    dbSendQuery(db, "DELETE FROM packages WHERE Version IS NULL")
+    no_version <- dbGetQuery(db, "SELECT * FROM packages WHERE Version IS NULL")
+    if (nrow(no_version) > 0) {
+      message("cranlike: Removing packages without version from DB")
+      cat(no_version$Package)
+      dbSendQuery(db, "DELETE FROM packages WHERE Version IS NULL")
+    }
 
     message("cranlike: Started writing packages file")
     if (!grepl("s3://", files[1])) {
