@@ -14,7 +14,8 @@ parse_package_files <- function(files, md5s, fields) {
 
     p(sprintf("x=%s", file))
     if (grepl("s3://", file)) {
-      # s3://devxy-arm64-r-binaries/__linux__/rhel9/latest/src/contrib/abd_0.2-8.tar.gz
+      # browser()
+      # s3://devxy-arm64-r-binaries/amd64/noble/latest/src/contrib/BSW_0.1.1.tar.gz
       package_and_tag <- strsplit(basename(file), ".tar.gz")[[1]]
       package <- strsplit(package_and_tag, "_")[[1]][1]
       tag <- strsplit(package_and_tag, "_")[[1]][2]
@@ -26,8 +27,8 @@ parse_package_files <- function(files, md5s, fields) {
       return(NULL)
     }
     row <- desc$get(fields)
-    if (is.na(row["Package"])) warning("No package name in ", sQuote(file))
-    if (is.na(row["Version"])) warning("No version number in ", sQuote(file))
+    if (is.na(row["Package"])) message("No package name in ", sQuote(file))
+    if (is.na(row["Version"])) message("No version number in ", sQuote(file))
     row
   })
   message("Finished parsing DESCRIPTION files")
