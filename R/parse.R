@@ -8,11 +8,11 @@ parse_package_files <- function(files, md5s, fields) {
   ## If there is an error, then we could not extract DESCRIPTION,
   ## but even in this case there will be a warning as well...
   message("Started parsing DESCRIPTION files")
-  pkgs <- future.apply::future_lapply(files, function(file) {
-    p <- progressr::progressor(along = files)
+  pkgs <- lapply(files, function(file) {
+    # p <- progressr::progressor(along = files)
     "!DEBUG Parsing `basename(file)`"
 
-    p(sprintf("x=%s", file))
+    # p(sprintf("x=%s", file))
     if (grepl("s3://", file)) {
       # browser()
       # s3://devxy-arm64-r-binaries/amd64/noble/latest/src/contrib/BSW_0.1.1.tar.gz
