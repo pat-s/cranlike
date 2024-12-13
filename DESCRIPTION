@@ -19,7 +19,8 @@ Imports:
     progressr,
     s3fs,
     tools,
-    utils
+    utils,
+    bit
 Suggests: 
     covr,
     mockery,
