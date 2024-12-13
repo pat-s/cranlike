@@ -20,7 +20,8 @@ Imports:
     s3fs,
     tools,
     utils,
-    bit
+    bit,
+    cachem
 Suggests: 
     covr,
     mockery,
