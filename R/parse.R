@@ -7,10 +7,12 @@ parse_package_files <- function(files, md5s, fields) {
   ## this is probably because uncompressing the file has failed.
   ## If there is an error, then we could not extract DESCRIPTION,
   ## but even in this case there will be a warning as well...
-  message("Started parsing DESCRIPTION files")
+  message("cranlike: Started parsing DESCRIPTION files")
   pkgs <- lapply(files, function(file) {
     # p <- progressr::progressor(along = files)
     "!DEBUG Parsing `basename(file)`"
+
+    message(sprintf("Parsing %s", file)) 
 
     # p(sprintf("x=%s", file))
     if (grepl("s3://", file)) {
@@ -23,6 +25,8 @@ parse_package_files <- function(files, md5s, fields) {
     } else {
       desc <- get_desc(file)
     }
+    message(sprintf("cranlike: Finished parsing %s", file)) 
+
     if (is.null(desc)) {
       return(NULL)
     }
@@ -31,7 +35,7 @@ parse_package_files <- function(files, md5s, fields) {
     if (is.na(row["Version"])) message("No version number in ", sQuote(file))
     row
   })
-  message("Finished parsing DESCRIPTION files")
+  message("cranlike: Finished parsing DESCRIPTION files")
   valid <- !vapply(pkgs, is.null, TRUE)
 
   ## Make it into a DF
