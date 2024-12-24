@@ -11,6 +11,7 @@ BugReports: https://github.com/r-hub/cranlike/issues
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports:
+    curl,
     DBI,
     debugme,
     desc (>= 1.1.0),

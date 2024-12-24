@@ -12,20 +12,21 @@ parse_package_files <- function(files, md5s, fields) {
     # p <- progressr::progressor(along = files)
     "!DEBUG Parsing `basename(file)`"
 
-    message(sprintf("Parsing %s", file)) 
+    message(sprintf("Parsing %s", file))
 
     # p(sprintf("x=%s", file))
     if (grepl("s3://", file)) {
       # browser()
-      # s3://devxy-arm64-r-binaries/amd64/noble/latest/src/contrib/BSW_0.1.1.tar.gz
+      # s3://devxy-r-package-binaries/amd64/noble/latest/src/contrib/BSW_0.1.1.tar.gz
       package_and_tag <- strsplit(basename(file), ".tar.gz")[[1]]
       package <- strsplit(package_and_tag, "_")[[1]][1]
       tag <- strsplit(package_and_tag, "_")[[1]][2]
+      # cranlike:::get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", "BSW", "0.1.1"))
       desc <- get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", package, tag))
     } else {
       desc <- get_desc(file)
     }
-    message(sprintf("cranlike: Finished parsing %s", file)) 
+    message(sprintf("cranlike: Finished parsing %s", file))
 
     if (is.null(desc)) {
       return(NULL)
@@ -70,11 +71,17 @@ parse_package_files <- function(files, md5s, fields) {
 }
 
 #' @importFrom desc description
+#' @importFrom curl curl_fetch_disk
 
 get_desc <- function(file) {
   tryCatch(
     {
-      desc <- description$new(file)
+      if (grepl("s3://", file)) {
+        # fetch_memory() doesn't work
+        desc <- desc::description$new(curl::curl_fetch_disk(file, tempfile())$content)
+      } else {
+        desc <- description$new(file)
+      }
       v <- desc$get("Version")
       if (!is.na(v)) desc$set("Version", str_trim(v))
       desc
