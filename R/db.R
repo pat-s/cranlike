@@ -163,6 +163,7 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     ## Any files added?
     if (length(added <- setdiff(dir_md5, db_md5)) > 0) {
       added_files <- names(dir_md5)[match(added, dir_md5)]
+      added_files = na.omit(added_files)
       pkgs <- parse_package_files(added_files, added, fields)
       if (length(xcolumns)) {
         pkgs <- cbind(pkgs, xcolumns)
