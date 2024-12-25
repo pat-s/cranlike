@@ -23,6 +23,7 @@ parse_package_files <- function(files, md5s, fields) {
       tag <- strsplit(package_and_tag, "_")[[1]][2]
       # cranlike:::get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", "BSW", "0.1.1"))
       desc <- get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", package, tag))
+
     } else {
       desc <- get_desc(file)
     }
@@ -36,7 +37,10 @@ parse_package_files <- function(files, md5s, fields) {
     if (is.na(row["Version"])) message("No version number in ", sQuote(file))
     row
   })
+  message(sprintf("cranlike: Package count after parsing DESCRIPTION files: %s", length(pkgs)))
+
   message("cranlike: Finished parsing DESCRIPTION files")
+
   valid <- !vapply(pkgs, is.null, TRUE)
 
   ## Make it into a DF
@@ -44,6 +48,8 @@ parse_package_files <- function(files, md5s, fields) {
   pkgs <- vapply(pkgs, c, FUN.VALUE = fields)
   df <- as.data.frame(t(pkgs))
   names(df) <- fields
+
+  message(sprintf("cranlike: Package count after converting to data.frame: %s", nrow(df)))
 
   ## Stick in MD5
   df$MD5sum <- md5s[valid]
@@ -76,14 +82,17 @@ parse_package_files <- function(files, md5s, fields) {
 get_desc <- function(file) {
   tryCatch(
     {
-      if (grepl("s3://", file)) {
+      if (grepl("https://", file)) {
         # fetch_memory() doesn't work
         desc <- desc::description$new(curl::curl_fetch_disk(file, tempfile())$content)
+        message(sprintf("cranlike: Fetched Description for %s", file))
       } else {
         desc <- description$new(file)
       }
       v <- desc$get("Version")
+      message(sprintf("Version: %s", cat(v)))
       if (!is.na(v)) desc$set("Version", str_trim(v))
+      # message(cat(str(desc)))
       desc
     },
     error = function(e) {

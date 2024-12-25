@@ -26,7 +26,16 @@ check_existing_files <- function(files) {
 }
 
 drop_nulls <- function(l) {
-  l[ ! vapply(l, is.null, TRUE) ]
+  null_items <- l[vapply(l, is.null, TRUE)]
+  
+  if (length(null_items) > 0) {
+    cat("Dropped items:\n")
+    print(null_items)
+  } else {
+    cat("No items dropped.\n")
+  }
+  
+  l[!vapply(l, is.null, TRUE)]
 }
 
 str_trim <- function(x) {
