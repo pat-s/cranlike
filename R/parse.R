@@ -89,10 +89,7 @@ get_desc <- function(file) {
       } else {
         desc <- description$new(file)
       }
-      v <- desc$get("Version")
-      message(sprintf("Version: %s", cat(v)))
       if (!is.na(v)) desc$set("Version", str_trim(v))
-      # message(cat(str(desc)))
       desc
     },
     error = function(e) {
