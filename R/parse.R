@@ -38,6 +38,7 @@ parse_package_files <- function(files, md5s, fields) {
     row
   })
   message(sprintf("cranlike: Package count after parsing DESCRIPTION files: %s", length(pkgs)))
+  # browser()
 
   message("cranlike: Finished parsing DESCRIPTION files")
 
@@ -89,6 +90,7 @@ get_desc <- function(file) {
       } else {
         desc <- description$new(file)
       }
+      v <- desc$get("Version")
       if (!is.na(v)) desc$set("Version", str_trim(v))
       desc
     },
