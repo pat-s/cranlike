@@ -127,9 +127,10 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     dir_md5 <- md5sum(files)
   } else {
     message("cranlike: Starting querying md5sum from S3")
-    dir_md5 <- gsub('^"|"$', "", s3fs::s3_file_info(files)$etag)
+    dir_md5_info <- s3fs::s3_file_info(files)[, c("uri", "etag")]
+    dir_md5 = gsub('^"|"$', '', dir_md5_info$etag)
+    dir_md5 <- setNames(dir_md5, dir_md5_info$uri)
     message("cranlike: Finished querying md5sum from S3")
-    dir_md5 <- setNames(dir_md5, files)
     message(sprintf("cranlike: S3 pkgs count: %s", length(dir_md5)))
   }
 
@@ -144,9 +145,46 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
 
     ## Packages in the DB
     message("cranlike: Starting querying md5sum from DB")
-    db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
+    pkg_data <- dbGetQuery(db, "SELECT File, MD5sum FROM packages ORDER BY File")
+    db_md5 <- setNames(pkg_data$MD5sum, pkg_data$File)
     message(sprintf("cranlike: DB pkgs count: %s", length(db_md5)))
     message("cranlike: Finished querying md5sum from DB")
+
+    message("cranlike: Updating mismatched md5sum packages with remote etag")
+    # browser()
+    purrr::imap(dir_md5, ~ {
+      # .x is the MD5 value; .y is the file name (e.g. "A3_1.0.0.tar.gz")
+
+      # setting this here to keep the s3:// prefix outside of this loop (for later use in parse_package_files)
+      .y = basename(.y)
+      # .x <- setNames(.x, names(basename(.x)))
+
+      # Find possible match in DB using the file name stored in .y
+      obj_db_ind <- which(grepl(sprintf("^%s$", .y), names(db_md5)))
+
+      if (is.na(.y)) {
+        return(NULL)
+      }
+
+      if (length(obj_db_ind) > 0) {
+        if (length(obj_db_ind) > 1) {
+          warning(sprintf("Multiple matches (%s) for package %s. Matches: %s. Keeping %s.\n", length(obj_db_ind), .y, names(db_md5[obj_db_ind]), names(db_md5[obj_db_ind[1]])))
+          obj_db_ind <- obj_db_ind[1]
+        }
+        if (.x != db_md5[obj_db_ind]) {
+          sql <- "UPDATE OR REPLACE packages SET MD5sum = ?md5sum WHERE File = ?file"
+          sql_query <- sqlInterpolate(db, sql, md5sum = .x, file = .y)
+          dbExecute(db, sql_query)
+          message(sprintf("cranlike: Fixing wrong etag for package %s. New: %s", .y, .x))
+        }
+      }
+    })
+  })
+
+  with_db_lock(db_file, {
+    db_md5 <- dbGetQuery(db, "SELECT MD5sum FROM packages")$MD5sum
+    db_names <- dbGetQuery(db, "SELECT File FROM packages")$File
+    db_md5 <- setNames(db_md5, db_names)
 
     message("cranlike: Checking for removed files in DB")
     ## Files removed?
@@ -163,8 +201,8 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     ## Any files added?
     if (length(added <- setdiff(dir_md5, db_md5)) > 0) {
       added_files <- names(dir_md5)[match(added, dir_md5)]
-      added = added[which(!is.na(added_files))]
-      added_files = na.omit(added_files)
+      added <- added[which(!is.na(added_files))]
+      added_files <- na.omit(added_files)
       pkgs <- parse_package_files(added_files, added, fields)
       if (length(xcolumns)) {
         pkgs <- cbind(pkgs, xcolumns)

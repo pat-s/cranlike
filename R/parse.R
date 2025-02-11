@@ -16,7 +16,6 @@ parse_package_files <- function(files, md5s, fields) {
 
     # p(sprintf("x=%s", file))
     if (grepl("s3://", file)) {
-      # browser()
       # s3://devxy-r-package-binaries/amd64/noble/latest/src/contrib/BSW_0.1.1.tar.gz
       package_and_tag <- strsplit(basename(file), ".tar.gz")[[1]]
       package <- strsplit(package_and_tag, "_")[[1]][1]
@@ -38,7 +37,6 @@ parse_package_files <- function(files, md5s, fields) {
     row
   })
   message(sprintf("cranlike: Package count after parsing DESCRIPTION files: %s", length(pkgs)))
-  # browser()
 
   message("cranlike: Finished parsing DESCRIPTION files")
 
