@@ -91,3 +91,111 @@ test_that("update_db", {
   expect_equal(tab$Package, c("foobar", "foobar2"))
   expect_equal(tab$File, basename(c(foo, foo2)))
 })
+
+test_that("md5sum mismatch fixing uses hash lookup correctly", {
+  db_file <- tempfile()
+  on.exit(unlink(db_file), add = TRUE)
+
+  # Set up a DB with two packages that have known md5sums
+  with_db(db_file, {
+    DBI::dbExecute(db, "CREATE TABLE packages (Package TEXT, Version TEXT, File TEXT, MD5sum TEXT, PRIMARY KEY (MD5sum))")
+    DBI::dbExecute(db, "INSERT INTO packages VALUES ('pkgA', '1.0.0', 'pkgA_1.0.0.tar.gz', 'aaa111')")
+    DBI::dbExecute(db, "INSERT INTO packages VALUES ('pkgB', '2.0.0', 'pkgB_2.0.0.tar.gz', 'bbb222')")
+  })
+
+  # Simulate dir_md5 from S3 where pkgA has a new etag but pkgB is unchanged
+  dir_md5 <- c(
+    "s3://bucket/pkgA_1.0.0.tar.gz" = "aaa999",
+    "s3://bucket/pkgB_2.0.0.tar.gz" = "bbb222"
+  )
+
+  # Run the hash-based mismatch fix logic (extracted from update_db)
+  with_db_lock(db_file, {
+    pkg_data <- DBI::dbGetQuery(db, "SELECT File, MD5sum FROM packages ORDER BY File")
+    db_md5 <- setNames(pkg_data$MD5sum, pkg_data$File)
+
+    s3_by_name <- setNames(dir_md5, basename(names(dir_md5)))
+    s3_by_name <- s3_by_name[!is.na(names(s3_by_name))]
+
+    common <- intersect(names(s3_by_name), names(db_md5))
+    mismatched <- common[s3_by_name[common] != db_md5[common]]
+
+    expect_equal(mismatched, "pkgA_1.0.0.tar.gz")
+
+    for (file in mismatched) {
+      sql <- "UPDATE OR REPLACE packages SET MD5sum = ?md5sum WHERE File = ?file"
+      sql_query <- DBI::sqlInterpolate(db, sql, md5sum = s3_by_name[file], file = file)
+      DBI::dbExecute(db, sql_query)
+    }
+  })
+
+  # Verify: pkgA md5 was updated, pkgB unchanged
+  result <- with_db(db_file, {
+    DBI::dbGetQuery(db, "SELECT Package, MD5sum FROM packages ORDER BY Package")
+  })
+  expect_equal(result$MD5sum[result$Package == "pkgA"], "aaa999")
+  expect_equal(result$MD5sum[result$Package == "pkgB"], "bbb222")
+})
+
+test_that("md5sum hash lookup handles no mismatches", {
+  db_file <- tempfile()
+  on.exit(unlink(db_file), add = TRUE)
+
+  with_db(db_file, {
+    DBI::dbExecute(db, "CREATE TABLE packages (Package TEXT, Version TEXT, File TEXT, MD5sum TEXT, PRIMARY KEY (MD5sum))")
+    DBI::dbExecute(db, "INSERT INTO packages VALUES ('pkgA', '1.0.0', 'pkgA_1.0.0.tar.gz', 'aaa111')")
+  })
+
+  dir_md5 <- c("s3://bucket/pkgA_1.0.0.tar.gz" = "aaa111")
+
+  with_db_lock(db_file, {
+    pkg_data <- DBI::dbGetQuery(db, "SELECT File, MD5sum FROM packages ORDER BY File")
+    db_md5 <- setNames(pkg_data$MD5sum, pkg_data$File)
+
+    s3_by_name <- setNames(dir_md5, basename(names(dir_md5)))
+    s3_by_name <- s3_by_name[!is.na(names(s3_by_name))]
+
+    common <- intersect(names(s3_by_name), names(db_md5))
+    mismatched <- common[s3_by_name[common] != db_md5[common]]
+
+    expect_length(mismatched, 0)
+  })
+
+  # DB should be unchanged
+  result <- with_db(db_file, {
+    DBI::dbGetQuery(db, "SELECT MD5sum FROM packages")
+  })
+  expect_equal(result$MD5sum, "aaa111")
+})
+
+test_that("md5sum hash lookup handles new S3 files not in DB", {
+  db_file <- tempfile()
+  on.exit(unlink(db_file), add = TRUE)
+
+  with_db(db_file, {
+    DBI::dbExecute(db, "CREATE TABLE packages (Package TEXT, Version TEXT, File TEXT, MD5sum TEXT, PRIMARY KEY (MD5sum))")
+    DBI::dbExecute(db, "INSERT INTO packages VALUES ('pkgA', '1.0.0', 'pkgA_1.0.0.tar.gz', 'aaa111')")
+  })
+
+  # S3 has pkgA (same) plus pkgC (new, not in DB)
+  dir_md5 <- c(
+    "s3://bucket/pkgA_1.0.0.tar.gz" = "aaa111",
+    "s3://bucket/pkgC_1.0.0.tar.gz" = "ccc333"
+  )
+
+  with_db_lock(db_file, {
+    pkg_data <- DBI::dbGetQuery(db, "SELECT File, MD5sum FROM packages ORDER BY File")
+    db_md5 <- setNames(pkg_data$MD5sum, pkg_data$File)
+
+    s3_by_name <- setNames(dir_md5, basename(names(dir_md5)))
+    s3_by_name <- s3_by_name[!is.na(names(s3_by_name))]
+
+    common <- intersect(names(s3_by_name), names(db_md5))
+    mismatched <- common[s3_by_name[common] != db_md5[common]]
+
+    # No mismatches — pkgC is new, not a mismatch
+    expect_length(mismatched, 0)
+    # pkgC should show up in setdiff (the "added" path)
+    expect_true("ccc333" %in% setdiff(dir_md5, db_md5))
+  })
+})

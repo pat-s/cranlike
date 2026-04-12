@@ -151,34 +151,21 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     message("cranlike: Finished querying md5sum from DB")
 
     message("cranlike: Updating mismatched md5sum packages with remote etag")
-    # browser()
-    purrr::imap(dir_md5, ~ {
-      # .x is the MD5 value; .y is the file name (e.g. "A3_1.0.0.tar.gz")
+    # Build hash-based lookup keyed by basename for O(n) matching
+    s3_by_name <- setNames(dir_md5, basename(names(dir_md5)))
+    s3_by_name <- s3_by_name[!is.na(names(s3_by_name))]
 
-      # setting this here to keep the s3:// prefix outside of this loop (for later use in parse_package_files)
-      .y = basename(.y)
-      # .x <- setNames(.x, names(basename(.x)))
+    common <- intersect(names(s3_by_name), names(db_md5))
+    mismatched <- common[s3_by_name[common] != db_md5[common]]
 
-      # Find possible match in DB using the file name stored in .y
-      obj_db_ind <- which(grepl(sprintf("^%s$", .y), names(db_md5)))
-
-      if (is.na(.y)) {
-        return(NULL)
+    if (length(mismatched) > 0) {
+      for (file in mismatched) {
+        sql <- "UPDATE OR REPLACE packages SET MD5sum = ?md5sum WHERE File = ?file"
+        sql_query <- sqlInterpolate(db, sql, md5sum = s3_by_name[file], file = file)
+        dbExecute(db, sql_query)
+        message(sprintf("cranlike: Fixing wrong etag for package %s. New: %s", file, s3_by_name[file]))
       }
-
-      if (length(obj_db_ind) > 0) {
-        if (length(obj_db_ind) > 1) {
-          warning(sprintf("Multiple matches (%s) for package %s. Matches: %s. Keeping %s.\n", length(obj_db_ind), .y, names(db_md5[obj_db_ind]), names(db_md5[obj_db_ind[1]])))
-          obj_db_ind <- obj_db_ind[1]
-        }
-        if (.x != db_md5[obj_db_ind]) {
-          sql <- "UPDATE OR REPLACE packages SET MD5sum = ?md5sum WHERE File = ?file"
-          sql_query <- sqlInterpolate(db, sql, md5sum = .x, file = .y)
-          dbExecute(db, sql_query)
-          message(sprintf("cranlike: Fixing wrong etag for package %s. New: %s", .y, .x))
-        }
-      }
-    })
+    }
   })
 
   with_db_lock(db_file, {
