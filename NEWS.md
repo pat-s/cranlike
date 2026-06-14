@@ -1,5 +1,9 @@
 # cranlike (development version)
 
+- `update_PACKAGES()` on an S3 repo no longer fails with "table packages already
+  exists" when several repos are updated in the same process/CWD. `create_db()`
+  now clears any stale local `PACKAGES.db` before creating a fresh one.
+
 # cranlike 1.0.3
 
 * cranlike now adds the size of the file to the metadata, in the `Filesize`
