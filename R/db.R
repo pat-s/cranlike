@@ -97,6 +97,11 @@ create_db <- function(dir, db_file, fields, xcolumns = NULL) {
   fields <- c(fields, extra_columns(), names(xcolumns))
   "!DEBUG Creating DB in `basename(db_file)`"
   dir.create(dirname(db_file), showWarnings = FALSE, recursive = TRUE)
+  # Start from a clean DB. For S3 repos the local working DB is a fixed path in
+  # the CWD (e.g. "./PACKAGES.db"); a copy left by a previous slot's update in
+  # the same process would otherwise make CREATE TABLE fail with
+  # "table packages already exists".
+  unlink(db_file, force = TRUE)
   with_db_lock(db_file, {
     db_create_text_table(db, "packages", fields, key = "MD5sum")
     write_packages_files(dir, db_file)
