@@ -132,9 +132,12 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     dir_md5 <- md5sum(files)
   } else {
     message("cranlike: Starting querying md5sum from S3")
-    dir_md5_info <- s3fs::s3_file_info(files)[, c("uri", "etag")]
-    dir_md5 = gsub('^"|"$', '', dir_md5_info$etag)
-    dir_md5 <- setNames(dir_md5, dir_md5_info$uri)
+    # Fetch etags from a single (paginated) bucket listing rather than one HEAD
+    # request per file. For large repos this turns O(n) S3 requests into O(1)
+    # and avoids minutes-long index refreshes / throttling.
+    dir_info <- s3fs::s3_dir_info(dir)
+    etag_by_uri <- setNames(gsub('^"|"$', "", dir_info$etag), dir_info$uri)
+    dir_md5 <- setNames(unname(etag_by_uri[files]), files)
     message("cranlike: Finished querying md5sum from S3")
     message(sprintf("cranlike: S3 pkgs count: %s", length(dir_md5)))
   }
