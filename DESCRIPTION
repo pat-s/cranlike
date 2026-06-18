@@ -15,7 +15,7 @@ Imports:
     DBI,
     debugme,
     desc (>= 1.1.0),
-    RSQLite (<= 3.53.1),
+    RSQLite,
     future.apply,
     progressr,
     s3fs,
@@ -31,3 +31,4 @@ Suggests:
     withr,
     zip
 Encoding: UTF-8
+Remotes: r-dbi/RSQLite
