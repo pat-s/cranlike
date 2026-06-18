@@ -15,7 +15,7 @@ Imports:
     DBI,
     debugme,
     desc (>= 1.1.0),
-    RSQLite,
+    RSQLite (<= 3.53.1),
     future.apply,
     progressr,
     s3fs,
