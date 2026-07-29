@@ -1,5 +1,11 @@
 # cranlike (development version)
 
+- `update_PACKAGES()` and `add_PACKAGES()` gain a `built` argument.
+  When set, it fills the `Built` field of every entry parsed in the call.
+  On S3 repos the DESCRIPTION is read from the CRAN source mirror, which never
+  carries `Built:`, so a binary repo would otherwise advertise every package as
+  source-only and binary-aware clients (e.g. uvr) would compile from source.
+  Pass the build R version plus platform triple to advertise the binaries.
 - `update_PACKAGES()` on an S3 repo no longer fails with "table packages already
   exists" when several repos are updated in the same process/CWD. `create_db()`
   now clears any stale local `PACKAGES.db` before creating a fresh one.

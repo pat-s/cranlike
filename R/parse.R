@@ -1,4 +1,4 @@
-parse_package_files <- function(files, md5s, fields) {
+parse_package_files <- function(files, md5s, fields, built = NULL) {
   ## We work in temp dir
   dir.create(tmp <- tempfile())
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
@@ -21,8 +21,11 @@ parse_package_files <- function(files, md5s, fields) {
       package <- strsplit(package_and_tag, "_")[[1]][1]
       tag <- strsplit(package_and_tag, "_")[[1]][2]
       # cranlike:::get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", "BSW", "0.1.1"))
-      desc <- get_desc(sprintf("https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION", package, tag))
-
+      desc <- get_desc(sprintf(
+        "https://raw.githubusercontent.com/cran/%s/%s/DESCRIPTION",
+        package,
+        tag
+      ))
     } else {
       desc <- get_desc(file)
     }
@@ -32,11 +35,18 @@ parse_package_files <- function(files, md5s, fields) {
       return(NULL)
     }
     row <- desc$get(fields)
-    if (is.na(row["Package"])) message("No package name in ", sQuote(file))
-    if (is.na(row["Version"])) message("No version number in ", sQuote(file))
+    if (is.na(row["Package"])) {
+      message("No package name in ", sQuote(file))
+    }
+    if (is.na(row["Version"])) {
+      message("No version number in ", sQuote(file))
+    }
     row
   })
-  message(sprintf("cranlike: Package count after parsing DESCRIPTION files: %s", length(pkgs)))
+  message(sprintf(
+    "cranlike: Package count after parsing DESCRIPTION files: %s",
+    length(pkgs)
+  ))
 
   message("cranlike: Finished parsing DESCRIPTION files")
 
@@ -48,13 +58,26 @@ parse_package_files <- function(files, md5s, fields) {
   df <- as.data.frame(t(pkgs))
   names(df) <- fields
 
-  message(sprintf("cranlike: Package count after converting to data.frame: %s", nrow(df)))
+  message(sprintf(
+    "cranlike: Package count after converting to data.frame: %s",
+    nrow(df)
+  ))
 
   ## Stick in MD5
   df$MD5sum <- md5s[valid]
 
   ## Add file names
   df$File <- basename(files[valid])
+
+  ## Stamp the `Built` field. For S3 repos the DESCRIPTION is fetched from the
+  ## CRAN *source* mirror, which never carries `Built:` (that field is only set
+  ## when R builds a binary), so every entry would otherwise be NA. Callers that
+  ## know the build context (R version + platform triple) pass `built` so the
+  ## index advertises the binaries as such; consumers like uvr key binary
+  ## detection on the `Built:` triple + R minor.
+  if (!is.null(built) && "Built" %in% names(df)) {
+    df$Built <- built
+  }
 
   ## Some extra fields
   # message("Started querying file sizes")
@@ -67,7 +90,8 @@ parse_package_files <- function(files, md5s, fields) {
 
   ## Standardize licenses, or NA, like in tools
   license_info <- analyze_licenses(df$License)
-  df$License <- ifelse(license_info$is_standardizable,
+  df$License <- ifelse(
+    license_info$is_standardizable,
     license_info$standardization,
     NA_character_
   )
@@ -83,18 +107,23 @@ get_desc <- function(file) {
     {
       if (grepl("https://", file)) {
         # fetch_memory() doesn't work
-        desc <- desc::description$new(curl::curl_fetch_disk(file, tempfile())$content)
+        desc <- desc::description$new(
+          curl::curl_fetch_disk(file, tempfile())$content
+        )
         message(sprintf("cranlike: Fetched Description for %s", file))
       } else {
         desc <- description$new(file)
       }
       v <- desc$get("Version")
-      if (!is.na(v)) desc$set("Version", str_trim(v))
+      if (!is.na(v)) {
+        desc$set("Version", str_trim(v))
+      }
       desc
     },
     error = function(e) {
       warning(
-        "Cannot extract valid DESCRIPTION, ", sQuote(file),
+        "Cannot extract valid DESCRIPTION, ",
+        sQuote(file),
         " will be ignored ",
         conditionMessage(e)
       )

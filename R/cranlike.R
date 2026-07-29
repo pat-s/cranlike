@@ -47,15 +47,25 @@ create_empty_PACKAGES <- function(dir = ".", fields = NULL, xcolumns = NULL) {
 #'
 #' @inheritParams create_empty_PACKAGES
 #' @inheritParams tools::write_PACKAGES
+#' @param built Optional scalar string used to fill the `Built` field of every
+#'   entry that is (re)parsed in this call, e.g.
+#'   `"R 4.5.3; x86_64-pc-linux-musl; 2026-06-12 01:10:57 UTC; unix"`. For S3
+#'   repos the DESCRIPTION is read from the CRAN *source* mirror, which has no
+#'   `Built:` field, so binary repos would otherwise advertise every package as
+#'   source-only. Pass the build R version + platform triple so consumers (e.g.
+#'   uvr) recognise the binaries. `NULL` (default) leaves `Built` as parsed.
 #' @importFrom s3fs s3_file_exists s3_file_download
 #'
 #' @family PACKAGES manipulation
 #' @export
 
 update_PACKAGES <- function(
-    dir = ".", fields = NULL,
-    type = c("source", "mac.binary", "win.binary"),
-    xcolumns = NULL) {
+  dir = ".",
+  fields = NULL,
+  type = c("source", "mac.binary", "win.binary"),
+  xcolumns = NULL,
+  built = NULL
+) {
   "!DEBUG Updating DB and PACKAGES* from directory content"
   fields <- get_fields(fields)
 
@@ -72,13 +82,17 @@ update_PACKAGES <- function(
     if (!s3fs::s3_file_exists(db_file)) {
       create_db(".", basename(db_file), fields = fields, xcolumns = xcolumns)
     } else {
-      s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "PACKAGES.db", overwrite = TRUE)
+      s3fs::s3_file_download(
+        sprintf("%s/PACKAGES.db", dir),
+        "PACKAGES.db",
+        overwrite = TRUE
+      )
     }
     db_file <- get_db_file(".")
   }
 
   ## Update DB
-  update_db(dir, basename(db_file), fields, type, xcolumns)
+  update_db(dir, basename(db_file), fields, type, xcolumns, built = built)
 }
 
 #' Add R packages to the package database
@@ -92,12 +106,19 @@ update_PACKAGES <- function(
 #' @param fields Fields to use in the database if the database is
 #'   created.
 #' @inheritParams create_empty_PACKAGES
+#' @inheritParams update_PACKAGES
 #' @importFrom s3fs s3_file_info
 #'
 #' @family PACKAGES manipulation
 #' @export
 
-add_PACKAGES <- function(files, dir = ".", fields = NULL, xcolumns = NULL) {
+add_PACKAGES <- function(
+  files,
+  dir = ".",
+  fields = NULL,
+  xcolumns = NULL,
+  built = NULL
+) {
   "!DEBUG Adding `length(files)` packages"
 
   if (!grepl("s3://", files)) {
@@ -121,12 +142,16 @@ add_PACKAGES <- function(files, dir = ".", fields = NULL, xcolumns = NULL) {
     if (!s3fs::s3_file_exists(sprintf("%s/PACKAGES.db", dir))) {
       create_db(".", db_file, fields = fields, xcolumns = xcolumns)
     } else {
-      s3fs::s3_file_download(sprintf("%s/PACKAGES.db", dir), "PACKAGES.db", overwrite = TRUE)
+      s3fs::s3_file_download(
+        sprintf("%s/PACKAGES.db", dir),
+        "PACKAGES.db",
+        overwrite = TRUE
+      )
     }
     db_file <- get_db_file(".")
   }
 
-  pkgs <- parse_package_files(full_files, md5s, fields)
+  pkgs <- parse_package_files(full_files, md5s, fields, built = built)
   if (length(xcolumns)) {
     pkgs <- cbind(pkgs, xcolumns)
   }
