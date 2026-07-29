@@ -110,7 +110,9 @@ create_db <- function(dir, db_file, fields, xcolumns = NULL) {
 
 db_create_text_table <- function(db, name, columns, key) {
   sql <- paste0(
-    "CREATE TABLE ", name, "(\n",
+    "CREATE TABLE ",
+    name,
+    "(\n",
     paste0('  "', columns, '" ', "TEXT", collapse = ",\n"),
     if (!is.null(key)) paste0(',\n  PRIMARY KEY ("', key, '")\n'),
     ");"
@@ -122,7 +124,14 @@ db_create_text_table <- function(db, name, columns, key) {
 #' @importFrom DBI sqlInterpolate dbSendQuery
 #' @importFrom s3fs s3_file_info
 
-update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
+update_db <- function(
+  dir,
+  db_file,
+  fields,
+  type,
+  xcolumns = NULL,
+  built = NULL
+) {
   "!DEBUG Updating DB in `basename(db_file)`"
 
   ## Current packages
@@ -153,7 +162,10 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
 
     ## Packages in the DB
     message("cranlike: Starting querying md5sum from DB")
-    pkg_data <- dbGetQuery(db, "SELECT File, MD5sum FROM packages ORDER BY File")
+    pkg_data <- dbGetQuery(
+      db,
+      "SELECT File, MD5sum FROM packages ORDER BY File"
+    )
     db_md5 <- setNames(pkg_data$MD5sum, pkg_data$File)
     message(sprintf("cranlike: DB pkgs count: %s", length(db_md5)))
     message("cranlike: Finished querying md5sum from DB")
@@ -169,9 +181,18 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
     if (length(mismatched) > 0) {
       for (file in mismatched) {
         sql <- "UPDATE OR REPLACE packages SET MD5sum = ?md5sum WHERE File = ?file"
-        sql_query <- sqlInterpolate(db, sql, md5sum = s3_by_name[file], file = file)
+        sql_query <- sqlInterpolate(
+          db,
+          sql,
+          md5sum = s3_by_name[file],
+          file = file
+        )
         dbExecute(db, sql_query)
-        message(sprintf("cranlike: Fixing wrong etag for package %s. New: %s", file, s3_by_name[file]))
+        message(sprintf(
+          "cranlike: Fixing wrong etag for package %s. New: %s",
+          file,
+          s3_by_name[file]
+        ))
       }
     }
   })
@@ -198,7 +219,7 @@ update_db <- function(dir, db_file, fields, type, xcolumns = NULL) {
       added_files <- names(dir_md5)[match(added, dir_md5)]
       added <- added[which(!is.na(added_files))]
       added_files <- na.omit(added_files)
-      pkgs <- parse_package_files(added_files, added, fields)
+      pkgs <- parse_package_files(added_files, added, fields, built = built)
       if (length(xcolumns)) {
         pkgs <- cbind(pkgs, xcolumns)
       }

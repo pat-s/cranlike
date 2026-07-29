@@ -4,7 +4,7 @@
 \alias{add_PACKAGES}
 \title{Add R packages to the package database}
 \usage{
-add_PACKAGES(files, dir = ".", fields = NULL, xcolumns = NULL)
+add_PACKAGES(files, dir = ".", fields = NULL, xcolumns = NULL, built = NULL)
 }
 \arguments{
 \item{files}{Files to add, only the file names, without the path.
@@ -18,6 +18,14 @@ created.}
 \item{xcolumns}{Extra scalar columns to add to the database.
 Should be a named list of character scalars or \code{NULL} for no extra
 columns.}
+
+\item{built}{Optional scalar string used to fill the \code{Built} field of every
+entry that is (re)parsed in this call, e.g.
+\code{"R 4.5.3; x86_64-pc-linux-musl; 2026-06-12 01:10:57 UTC; unix"}. For S3
+repos the DESCRIPTION is read from the CRAN \emph{source} mirror, which has no
+\code{Built:} field, so binary repos would otherwise advertise every package as
+source-only. Pass the build R version + platform triple so consumers (e.g.
+uvr) recognise the binaries. \code{NULL} (default) leaves \code{Built} as parsed.}
 }
 \description{
 The files must exist in the directory. If the package database does
