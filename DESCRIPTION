@@ -31,4 +31,3 @@ Suggests:
     withr,
     zip
 Encoding: UTF-8
-Remotes: r-dbi/RSQLite
