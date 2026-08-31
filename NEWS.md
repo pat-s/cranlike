@@ -1,5 +1,13 @@
 # cranlike (development version)
 
+- Development version bumped to 1.0.3.9002.
+  The version had stayed at 1.0.3.9001 across every commit since 2026-06-14,
+  including the one that added the `built` argument. Resolvers that decide
+  whether an installed copy is current by comparing the `DESCRIPTION` version
+  cannot tell those commits apart, so a library holding an older build is never
+  refreshed and callers fail with `unused argument (built = built)`.
+  Bump this on every change that others install from.
+
 - `update_PACKAGES()` and `add_PACKAGES()` gain a `built` argument.
   When set, it fills the `Built` field of every entry parsed in the call.
   On S3 repos the DESCRIPTION is read from the CRAN source mirror, which never

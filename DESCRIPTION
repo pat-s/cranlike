@@ -1,6 +1,6 @@
 Package: cranlike
 Title: Tools for 'CRAN'-Like Repositories
-Version: 1.0.3.9001
+Version: 1.0.3.9002
 Author: Gábor Csárdi
 Maintainer: Gábor Csárdi <csardi.gabor@gmail.com>
 Description: A set of functions to manage 'CRAN'-like repositories
